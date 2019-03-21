@@ -1,0 +1,97 @@
+---
+title: "JHU_DSS-Practical-Machine-Learning-Peer-Assessment"
+author: "Partha Hazra"
+date: "March 21, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Overview
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement. A group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks.
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, we will use data recorded from accelerometers on the belt, forearm, arm, and dumbbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+More information is available from the website http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+The goal of this project is to predictt he manner in which the volunteers did the exercise. The outcome is measured against 60 observations and classifed as "A,B,C,D,E" catogerise and it is stored in the classe variable in the data set.
+
+## Preparing the data
+
+### Loading all the required packages
+```{r }
+library(ElemStatLearn)
+library(caret)
+library(rpart)
+library(randomForest)
+library(RCurl)
+library(rattle)
+```
+
+### Loading the data
+```{r }
+wholedata <- read.csv("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", na.strings = c("NA", "#DIV/0!", ""))
+testingSet<-read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",na.strings=c("NA","#DIV/0!"))
+```
+
+### Cleaning the data
+
+Removed the rows of data which has "NA" and also the variables which are not required or useful for the preductions from both the training set and the testing set.
+
+```{r }
+NA_Count = sapply(1:dim(wholedata)[2],function(x)sum(is.na(wholedata[,x])))
+NA_list = which(NA_Count>0)
+wholedata = wholedata[,-NA_list]
+wholedata = wholedata[,-c(1:7)]
+wholedata$classe = factor(wholedata$classe)
+NA_Count1 = sapply(1:dim(testingSet)[2],function(x)sum(is.na(testingSet[,x])))
+NA_list1 = which(NA_Count1>0)
+testingSet = testingSet[,-NA_list]
+testingSet = testingSet[,-c(1:7)]
+dim(wholedata)
+dim(testingSet)
+```
+
+From the data set creating the traning and testing data partitions. The test set of 20 observations provided will be used to validate the model at the end.
+
+```{r }
+inTrain=createDataPartition(y=wholedata$classe, p=0.6, list=FALSE)
+training <-wholedata[inTrain,]
+testing <- wholedata[-inTrain,]
+```
+
+### Modelling
+
+We now create our model using the functions provided in caret package in R. ## Tree method using the tree method to do the prediction of classe.
+
+```{r }
+# Decision Tree
+modfit1 <- train(classe ~ .,method='rpart',data=training)
+fancyRpartPlot(modfit1$finalModel)
+pred=predict(modfit1,newdata=testing)
+z=confusionMatrix(pred,testing$classe)
+z$table
+z$overall[1]
+
+# Random Forest
+modfit2=randomForest(classe~., data=training, method='class')
+pred2 = predict(modfit2,testing,type='class')
+qplot(roll_belt, magnet_dumbbell_y, colour=classe, data=training)
+z2=confusionMatrix(pred2,testing$classe)
+z2$table
+```
+
+## Conclusion
+From the above results the random forest method provides the best fit model and it is been considered for testing the test data set to submit results.
+
+```{r }
+pred3 = predict(modfit2,testingSet,type='class')
+nofiles = length(pred3)
+for (i in 1:nofiles){
+    filename = paste0("problem_id",i,".txt")
+    write.table(pred3[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+}
+pred3
+```
